@@ -1,0 +1,56 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Zenith Trading Journal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'gray': {
+                            950: '#09090b',
+                            900: '#18181b',
+                            800: '#27272a',
+                            700: '#3f3f46',
+                            600: '#52525b',
+                            500: '#71717a',
+                            400: '#a1a1aa',
+                            300: '#d4d4d8',
+                            200: '#e4e4e7',
+                            100: '#f4f4f5',
+                            50: '#fafafa',
+                        },
+                    }
+                }
+            }
+        }
+    </script>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.545.0",
+    "recharts": "https://aistudiocdn.com/recharts@^3.2.1",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.25.0"
+  }
+}
+</script>
+</head>
+<body class="bg-gray-950 text-gray-100">
+<div id="root"></div>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>
