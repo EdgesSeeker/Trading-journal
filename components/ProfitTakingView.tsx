@@ -7,7 +7,8 @@ import type { Trade } from '../types';
 const DISCORD_WEBHOOK = 'https://discord.com/api/webhooks/1431993168697757706/IPp6aglCK8nV-e_8EVnAjFVhti41cJUh8ZSWkTgB_vwr2d0V9XKd9Slcm1r9Em35bXP2';
 
 // Cloud monitoring API (Vercel)
-const CLOUD_API_URL = 'https://sma-monitor.vercel.app/api/sma-monitor';
+// TODO: Nach dem Deployment mit deiner echten Vercel-URL ersetzen!
+const CLOUD_API_URL = 'https://deine-vercel-url.vercel.app/api/sma-monitor';
 
 interface ProfitTakingViewProps {
   trades: Trade[];
