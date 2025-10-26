@@ -1,0 +1,26 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/sma-monitor.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/sma-monitor",
+      "dest": "/api/sma-monitor.js"
+    }
+  ],
+  "functions": {
+    "api/sma-monitor.js": {
+      "maxDuration": 30
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/sma-monitor",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}
