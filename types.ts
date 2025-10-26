@@ -17,6 +17,16 @@ export interface Trade {
   rMultiple: number;
   mistakes: string[];
   imageUrl?: string;
+  // New fields for focuslist and profit-taking
+  status?: 'open' | 'closed';
+  entryDate?: string;
+  currentPrice?: number;
+  maValue?: number;
+  profitTakingCompleted?: boolean;
+  side?: 'BUY' | 'SELL';
+  trailingMA?: '5' | '10' | '20' | '30/10' | '5/50';
+  profitPercentage?: number; // % Gewinn
+  distanceToSL?: number; // % Distanz zum Stop Loss
 }
 
 export interface TradingPlan {
@@ -35,7 +45,7 @@ export interface DailyReport {
   isGenerating?: boolean;
 }
 
-export type ActiveTab = 'dashboard' | 'journal' | 'calendar' | 'analytics' | 'planning' | 'reports';
+export type ActiveTab = 'dashboard' | 'journal' | 'calendar' | 'analytics' | 'planning' | 'reports' | 'focuslist' | 'profit-taking' | 'stock-analysis';
 
 export interface TradeFilters {
   setup: string;
@@ -54,4 +64,21 @@ export interface TimeframeStats {
     pnl: number;
     trades: number;
     wins: number;
+}
+
+export interface FocusListItem {
+  id: number;
+  symbol: string;
+  date: string;
+}
+
+export interface Analysis {
+  id: number;
+  symbol: string;
+  title: string;
+  date: string;
+  fullAnalysis: string;
+  technicals: string;
+  createdAt: string;
+  tags: string[];
 }

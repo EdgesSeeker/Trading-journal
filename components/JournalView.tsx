@@ -20,6 +20,49 @@ const formatCurrency = (value: number) => {
     }).format(value);
 };
 
+const formatPnL = (trade: Trade) => {
+    if (trade.status === 'open') {
+        return 'Open';
+    }
+    return formatCurrency(trade.pnl);
+};
+
+const getPnLColor = (trade: Trade) => {
+    if (trade.status === 'open') {
+        return 'text-gray-400';
+    }
+    return trade.pnl >= 0 ? 'text-green-400' : 'text-red-400';
+};
+
+const formatRMultiple = (trade: Trade) => {
+    if (trade.status === 'open') {
+        return 'Open';
+    }
+    return `${trade.rMultiple.toFixed(2)}R`;
+};
+
+const getRMultipleColor = (trade: Trade) => {
+    if (trade.status === 'open') {
+        return 'text-gray-400';
+    }
+    return trade.rMultiple >= 0 ? 'text-green-400' : 'text-red-400';
+};
+
+const formatProfitPercentage = (trade: Trade) => {
+    if (trade.status === 'open' || !trade.profitPercentage) {
+        return 'Open';
+    }
+    return `${trade.profitPercentage.toFixed(2)}%`;
+};
+
+const getProfitPercentageColor = (trade: Trade) => {
+    if (trade.status === 'open' || !trade.profitPercentage) {
+        return 'text-gray-400';
+    }
+    return trade.profitPercentage >= 0 ? 'text-green-400' : 'text-red-400';
+};
+
+
 const JournalView: React.FC<JournalViewProps> = ({ stats, filters, setFilters, onEdit, onDelete }) => {
     return (
         <div className="space-y-6">
@@ -56,10 +99,9 @@ const JournalView: React.FC<JournalViewProps> = ({ stats, filters, setFilters, o
                                 <th scope="col" className="px-6 py-3">Date</th>
                                 <th scope="col" className="px-6 py-3">Symbol</th>
                                 <th scope="col" className="px-6 py-3">Type</th>
-                                <th scope="col" className="px-6 py-3">Setup</th>
                                 <th scope="col" className="px-6 py-3 text-right">P/L</th>
                                 <th scope="col" className="px-6 py-3 text-right">R-Multiple</th>
-                                <th scope="col" className="px-6 py-3 text-center">Rating</th>
+                                <th scope="col" className="px-6 py-3 text-right">% Gewinn</th>
                                 <th scope="col" className="px-6 py-3 text-center">Actions</th>
                             </tr>
                         </thead>
@@ -73,18 +115,9 @@ const JournalView: React.FC<JournalViewProps> = ({ stats, filters, setFilters, o
                                             {trade.type}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 text-gray-300">{trade.setup}</td>
-                                    <td className={`px-6 py-4 text-right font-semibold ${trade.pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>{formatCurrency(trade.pnl)}</td>
-                                    <td className={`px-6 py-4 text-right font-medium ${trade.rMultiple >= 0 ? 'text-green-400' : 'text-red-400'}`}>{trade.rMultiple.toFixed(2)}R</td>
-                                    <td className="px-6 py-4 text-center">
-                                        <div className="flex justify-center items-center gap-1">
-                                            {[...Array(5)].map((_, i) => (
-                                                <svg key={i} className={`w-4 h-4 ${i < trade.rating ? 'text-yellow-400' : 'text-gray-600'}`} fill="currentColor" viewBox="0 0 20 20">
-                                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                                                </svg>
-                                            ))}
-                                        </div>
-                                    </td>
+                                    <td className={`px-6 py-4 text-right font-semibold ${getPnLColor(trade)}`}>{formatPnL(trade)}</td>
+                                    <td className={`px-6 py-4 text-right font-medium ${getRMultipleColor(trade)}`}>{formatRMultiple(trade)}</td>
+                                    <td className={`px-6 py-4 text-right font-medium ${getProfitPercentageColor(trade)}`}>{formatProfitPercentage(trade)}</td>
                                     <td className="px-6 py-4">
                                         <div className="flex gap-4 justify-center">
                                             <button onClick={() => onEdit(trade)} className="text-gray-400 hover:text-indigo-400 transition-colors"><Edit2 size={16} /></button>

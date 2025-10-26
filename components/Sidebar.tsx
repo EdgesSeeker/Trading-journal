@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { LayoutDashboard, BookOpen, Calendar, BarChart3, Target, TrendingUp, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Calendar, BarChart3, Target, TrendingUp, ClipboardList, Eye, DollarSign, FileText } from 'lucide-react';
 import type { ActiveTab } from '../types';
 
 interface SidebarProps {
@@ -30,6 +30,9 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
     { id: 'calendar', label: 'Calendar', icon: Calendar },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     { id: 'planning', label: 'Planning', icon: Target },
+    { id: 'focuslist', label: 'Focus List', icon: Eye },
+    { id: 'stock-analysis', label: 'Stock Analysis', icon: FileText },
+    { id: 'profit-taking', label: 'Profit Taking', icon: DollarSign },
   ];
 
   return (

@@ -5,7 +5,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import StatCard from './StatCard';
 import GoalsWidget from './GoalsWidget';
 import type { useTradeData } from '../hooks/useTradeData';
-import type { DailyReport } from '../types';
+import type { DailyReport, Trade } from '../types';
 
 type DashboardProps = {
     stats: ReturnType<typeof useTradeData>;
@@ -18,6 +18,20 @@ const formatCurrency = (value: number) => {
         currency: 'USD',
         signDisplay: 'auto'
     }).format(value);
+};
+
+const formatPnL = (trade: Trade) => {
+    if (trade.status === 'open') {
+        return 'Open';
+    }
+    return formatCurrency(trade.pnl);
+};
+
+const getPnLColor = (trade: Trade) => {
+    if (trade.status === 'open') {
+        return 'text-gray-400';
+    }
+    return trade.pnl >= 0 ? 'text-green-400' : 'text-red-400';
 };
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -104,8 +118,8 @@ const Dashboard: React.FC<DashboardProps> = ({ stats, latestReport }) => {
                                         <td className="px-4 py-3 font-medium text-white">{trade.symbol}</td>
                                         <td className="px-4 py-3 text-gray-400">{trade.date}</td>
                                         <td className="px-4 py-3 text-gray-300">{trade.setup}</td>
-                                        <td className={`px-4 py-3 text-right font-semibold ${trade.pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                            {formatCurrency(trade.pnl)}
+                                        <td className={`px-4 py-3 text-right font-semibold ${getPnLColor(trade)}`}>
+                                            {formatPnL(trade)}
                                         </td>
                                     </tr>
                                 ))}

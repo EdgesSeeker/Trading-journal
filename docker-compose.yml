@@ -1,0 +1,20 @@
+# Docker Compose für Price Alerts API
+version: '3.8'
+
+services:
+  price-alerts-api:
+    build: .
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+    restart: unless-stopped
+    networks:
+      - alerts-network
+
+networks:
+  alerts-network:
+    driver: bridge

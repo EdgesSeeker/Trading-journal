@@ -24,7 +24,8 @@ const emptyTrade = {
     rating: 3,
     tags: '',
     mistakes: '',
-    imageUrl: ''
+    imageUrl: '',
+    trailingMA: '20' as '5' | '10' | '20'
 };
 
 const TradeModal: React.FC<TradeModalProps> = ({ isOpen, onClose, onSave, trade }) => {
@@ -40,6 +41,7 @@ const TradeModal: React.FC<TradeModalProps> = ({ isOpen, onClose, onSave, trade 
                 shares: trade.shares.toString(),
                 tags: trade.tags.join(', '),
                 mistakes: trade.mistakes.join(', '),
+                trailingMA: trade.trailingMA || '20',
             });
         } else {
             setTradeData(emptyTrade);
@@ -55,13 +57,30 @@ const TradeModal: React.FC<TradeModalProps> = ({ isOpen, onClose, onSave, trade 
     
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        
+        // Validate required fields before saving
+        if (!tradeData.symbol || !tradeData.entry || !tradeData.shares) {
+            alert('Please fill in all required fields (Symbol, Entry Price, Shares)');
+            return;
+        }
+        
+        // Determine if trade is open or closed based on exit price
+        const hasExitPrice = tradeData.exit && parseFloat(tradeData.exit) > 0;
+        
+        console.log('💾 Saving trade from modal - triggering immediate backup:', {
+            symbol: tradeData.symbol,
+            hasExitPrice,
+            isNew: !trade
+        });
+        
         onSave({
             ...tradeData,
             entry: parseFloat(tradeData.entry),
-            exit: parseFloat(tradeData.exit),
+            exit: hasExitPrice ? parseFloat(tradeData.exit) : 0,
             stopLoss: tradeData.stopLoss ? parseFloat(tradeData.stopLoss) : undefined,
             shares: parseInt(tradeData.shares, 10),
             rating: parseInt(String(tradeData.rating), 10),
+            status: hasExitPrice ? 'closed' : 'open',
         });
     };
 
@@ -86,16 +105,24 @@ const TradeModal: React.FC<TradeModalProps> = ({ isOpen, onClose, onSave, trade 
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <input type="number" step="0.01" name="entry" value={tradeData.entry} onChange={handleChange} placeholder="Entry Price" className="input-field" required />
-                        <input type="number" step="0.01" name="exit" value={tradeData.exit} onChange={handleChange} placeholder="Exit Price" className="input-field" required />
+                        <input type="number" step="0.01" name="exit" value={tradeData.exit} onChange={handleChange} placeholder="Exit Price (leave empty for open trade)" className="input-field" />
                         <input type="number" step="0.01" name="stopLoss" value={tradeData.stopLoss} onChange={handleChange} placeholder="Stop Loss (Optional)" className="input-field" />
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <select name="setup" value={tradeData.setup} onChange={handleChange} className="input-field">
                             <option value="">Select Setup</option>
-                            {['Breakout', 'Support Bounce', 'Rejection', 'Gap Fill', 'Pullback', 'Reversal', 'Trend Follow'].map(s => <option key={s} value={s}>{s}</option>)}
+                            {['Breakout', 'UnR', 'Parabolic Short', 'Shoryuken'].map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                         <select name="timeframe" value={tradeData.timeframe} onChange={handleChange} className="input-field">
                             {['1m', '5m', '15m', '30m', '1h', '4h', '1d'].map(tf => <option key={tf} value={tf}>{tf}</option>)}
+                        </select>
+                        <select name="trailingMA" value={tradeData.trailingMA} onChange={handleChange} className="input-field">
+                            <option value="">Select MA</option>
+                            <option value="5">5 SMA</option>
+                            <option value="10">10 SMA</option>
+                            <option value="20">20 SMA</option>
+                            <option value="30/10">30/10 SMA (30min/10MA)</option>
+                            <option value="5/50">5/50 SMA (5min/50MA)</option>
                         </select>
                     </div>
                     <div>

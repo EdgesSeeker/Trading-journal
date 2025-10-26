@@ -1,14 +1,15 @@
 
 import React from 'react';
-import { Target, CheckCircle, Plus } from 'lucide-react';
+import { Target, CheckCircle, Plus, Trash2 } from 'lucide-react';
 import type { TradingPlan } from '../types';
 
 type PlanningViewProps = {
     plans: TradingPlan[];
     onAddPlan: () => void;
+    onDeletePlan: (id: number) => void;
 };
 
-const PlanningView: React.FC<PlanningViewProps> = ({ plans, onAddPlan }) => {
+const PlanningView: React.FC<PlanningViewProps> = ({ plans, onAddPlan, onDeletePlan }) => {
     return (
         <div className="space-y-8">
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
@@ -28,9 +29,18 @@ const PlanningView: React.FC<PlanningViewProps> = ({ plans, onAddPlan }) => {
                                     <h4 className="font-semibold text-lg text-white">{plan.name}</h4>
                                     <p className="text-sm text-gray-400 mt-1">{plan.description}</p>
                                 </div>
-                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${plan.active ? 'bg-green-500/10 text-green-400' : 'bg-gray-700 text-gray-300'}`}>
-                                    {plan.active ? 'Active' : 'Inactive'}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${plan.active ? 'bg-green-500/10 text-green-400' : 'bg-gray-700 text-gray-300'}`}>
+                                        {plan.active ? 'Active' : 'Inactive'}
+                                    </span>
+                                    <button 
+                                        onClick={() => onDeletePlan(plan.id)} 
+                                        className="text-gray-400 hover:text-red-400 transition-colors p-1"
+                                        title="Delete Plan"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
                             </div>
                             <div className="mt-4 border-t border-gray-800 pt-4">
                                 <p className="text-sm font-medium mb-2 text-gray-300">Execution Rules:</p>
