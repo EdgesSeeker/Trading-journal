@@ -9,6 +9,9 @@ const DISCORD_WEBHOOK = 'https://discord.com/api/webhooks/1431993168697757706/IP
 // Cloud monitoring API (Vercel)
 const CLOUD_API_URL = 'https://trading-journal-xi-six.vercel.app/api/sma-monitor';
 
+// Alpha Vantage API Key (Backup)
+const ALPHA_VANTAGE_API_KEY = 'FW9FIMJDM70YSWRF';
+
 interface ProfitTakingViewProps {
   trades: Trade[];
   onTradeUpdated: (trade: Trade) => void;
@@ -298,29 +301,361 @@ const ProfitTakingView: React.FC<ProfitTakingViewProps> = ({ trades, onTradeUpda
     }
   };
 
-  // Upload trade to cloud monitoring
-  const uploadTradeToCloud = async (trade: Trade) => {
-    try {
-      const response = await fetch(CLOUD_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ trade })
-      });
+  // Local SMA Monitor (inline)
+  const [localMonitor, setLocalMonitor] = useState<any>(null);
 
-      const result = await response.json();
-      
-      if (result.success) {
-        alert(`✅ Trade ${trade.symbol} zur Cloud-Überwachung hinzugefügt!\n\nDu kannst jetzt den PC herunterfahren - die Überwachung läuft automatisch weiter!`);
-        console.log('✅ Trade uploaded to cloud:', result);
-      } else {
-        alert('❌ Fehler beim Upload zur Cloud: ' + result.error);
-        console.error('❌ Cloud upload failed:', result);
+  // Initialize local monitor
+  useEffect(() => {
+    const monitor = {
+      trades: [],
+      isRunning: false,
+      intervalId: null,
+
+      addTrade(trade: Trade) {
+        const monitoringTrade = {
+          id: trade.id || Date.now(),
+          symbol: trade.symbol.toUpperCase(),
+          trailingMA: trade.trailingMA,
+          entryPrice: trade.entry,
+          side: trade.type === 'Long' ? 'BUY' : 'SELL',
+          addedAt: new Date().toISOString(),
+          lastChecked: null,
+          alertSent: false
+        };
+
+        this.trades.push(monitoringTrade);
+        console.log(`✅ Added trade to monitoring: ${monitoringTrade.symbol} with ${monitoringTrade.trailingMA} MA`);
+        
+        if (!this.isRunning) {
+          this.startMonitoring();
+        }
+
+        return monitoringTrade;
+      },
+
+      startMonitoring() {
+        if (this.isRunning) return;
+        
+        this.isRunning = true;
+        console.log('🚀 Starting intelligent SMA monitoring...');
+        
+        // Check immediately
+        this.checkAllTrades();
+        
+        // Fast interval: Check every 5 minutes for quick alerts
+        this.intervalId = setInterval(() => {
+          const now = new Date();
+          const hour = now.getHours();
+          const day = now.getDay();
+          
+          // Only check during market hours (9:30 AM - 4:00 PM EST, Monday-Friday)
+          const isMarketHours = day >= 1 && day <= 5 && hour >= 9 && hour < 16;
+          
+          if (isMarketHours) {
+            console.log('📈 Market hours - checking trades every 5 minutes...');
+            this.checkAllTrades();
+          } else {
+            console.log('😴 Outside market hours - skipping check');
+          }
+        }, 5 * 60 * 1000); // 5 minutes for fast alerts
+      },
+
+      async checkAllTrades() {
+        console.log(`🔍 Checking ${this.trades.length} trades for SMA alerts...`);
+        
+        for (const trade of this.trades) {
+          try {
+            const marketData = await this.fetchMarketData(trade.symbol, trade.trailingMA);
+            
+            if (marketData) {
+              const isLong = trade.side === 'BUY';
+              const isAboveMA = marketData.currentPrice > marketData.maValue;
+              const sellSignal = isLong ? !isAboveMA : isAboveMA;
+              
+              trade.lastChecked = new Date().toISOString();
+              
+              if (sellSignal && !trade.alertSent) {
+                await this.sendDiscordAlert(trade, marketData);
+                trade.alertSent = true;
+                
+                console.log(`🚨 Alert sent for ${trade.symbol}: ${marketData.currentPrice} vs ${marketData.maValue}`);
+              } else {
+                console.log(`✅ ${trade.symbol}: ${marketData.currentPrice} vs ${marketData.maValue} - No alert needed`);
+              }
+            }
+          } catch (error) {
+            console.error(`❌ Error checking ${trade.symbol}:`, error);
+          }
+        }
+      },
+
+      async fetchMarketData(symbol: string, maPeriod: string) {
+        try {
+          let timeframe = undefined;
+          let actualMaPeriod = maPeriod;
+          
+          if (maPeriod === '30/10') {
+            timeframe = '30m';
+            actualMaPeriod = '10';
+          } else if (maPeriod === '5/50') {
+            timeframe = '5m';
+            actualMaPeriod = '50';
+          }
+          
+          // Try Yahoo Finance first
+          try {
+            const currentPriceData = await this.fetchYahooCurrentPrice(symbol);
+            const historicalData = await this.fetchYahooHistoricalData(symbol, actualMaPeriod, timeframe);
+            const maValue = this.calculateMovingAverage(historicalData, parseInt(actualMaPeriod));
+            
+            return {
+              symbol: symbol.toUpperCase(),
+              currentPrice: Number(currentPriceData.toFixed(2)),
+              maValue: Number(maValue.toFixed(2)),
+              maPeriod,
+              timestamp: Date.now(),
+              source: 'Yahoo Finance'
+            };
+          } catch (yahooError) {
+            console.warn(`Yahoo Finance failed for ${symbol}, trying Alpha Vantage backup...`);
+            
+            // Fallback to Alpha Vantage
+            const alphaData = await this.fetchAlphaVantageData(symbol, actualMaPeriod);
+            if (alphaData) {
+              return {
+                ...alphaData,
+                source: 'Alpha Vantage (Backup)'
+              };
+            }
+            
+            throw yahooError;
+          }
+        } catch (error) {
+          console.error(`Error fetching market data for ${symbol}:`, error);
+          return null;
+        }
+      },
+
+      async fetchYahooCurrentPrice(symbol: string) {
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol.toUpperCase()}`;
+        
+        // Use CORS proxy
+        const corsProxies = [
+          'https://api.allorigins.win/raw?url=',
+          'https://corsproxy.io/?',
+          'https://cors-anywhere.herokuapp.com/'
+        ];
+        
+        for (const proxy of corsProxies) {
+          try {
+            const response = await fetch(`${proxy}${encodeURIComponent(url)}`, {
+              method: 'GET',
+              headers: {
+                'Accept': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+              }
+            });
+            
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.chart && data.chart.result && data.chart.result[0]) {
+              const result = data.chart.result[0];
+              const currentPrice = result.meta.regularMarketPrice;
+              return currentPrice;
+            }
+            
+            throw new Error('No price data found');
+          } catch (error) {
+            console.log(`Proxy ${proxy} failed, trying next...`);
+            continue;
+          }
+        }
+        
+        throw new Error('All CORS proxies failed');
+      },
+
+      async fetchYahooHistoricalData(symbol: string, maPeriod: string, timeframe?: string) {
+        const period = parseInt(maPeriod);
+        const range = Math.max(30, period * 2);
+        
+        let interval = '1d';
+        if (timeframe === '30m') {
+          interval = '30m';
+        } else if (timeframe === '5m') {
+          interval = '5m';
+        }
+        
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol.toUpperCase()}?interval=${interval}&range=${range}d`;
+        
+        // Use CORS proxy
+        const corsProxies = [
+          'https://api.allorigins.win/raw?url=',
+          'https://corsproxy.io/?',
+          'https://cors-anywhere.herokuapp.com/'
+        ];
+        
+        for (const proxy of corsProxies) {
+          try {
+            const response = await fetch(`${proxy}${encodeURIComponent(url)}`, {
+              method: 'GET',
+              headers: {
+                'Accept': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+              }
+            });
+            
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.chart && data.chart.result && data.chart.result[0]) {
+              const result = data.chart.result[0];
+              const quotes = result.indicators.quote[0];
+              const closes = quotes.close.filter((price: number) => price !== null);
+              return closes.slice(-period * 2);
+            }
+            
+            throw new Error('No historical data found');
+          } catch (error) {
+            console.log(`Proxy ${proxy} failed for historical data, trying next...`);
+            continue;
+          }
+        }
+        
+        throw new Error('All CORS proxies failed for historical data');
+      },
+
+      // Alpha Vantage Backup API
+      async fetchAlphaVantageData(symbol: string, maPeriod: string) {
+        try {
+          console.log(`🔄 Using Alpha Vantage backup for ${symbol}...`);
+          
+          // Get current price
+          const currentPrice = await this.fetchAlphaVantageCurrentPrice(symbol);
+          
+          // Get SMA data
+          const smaData = await this.fetchAlphaVantageSMA(symbol, maPeriod);
+          
+          return {
+            symbol: symbol.toUpperCase(),
+            currentPrice: Number(currentPrice.toFixed(2)),
+            maValue: Number(smaData.toFixed(2)),
+            maPeriod,
+            timestamp: Date.now()
+          };
+        } catch (error) {
+          console.error(`Alpha Vantage backup failed for ${symbol}:`, error);
+          return null;
+        }
+      },
+
+      async fetchAlphaVantageCurrentPrice(symbol: string) {
+        const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${ALPHA_VANTAGE_API_KEY}`;
+        
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`Alpha Vantage HTTP error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data['Global Quote'] && data['Global Quote']['05. price']) {
+          return parseFloat(data['Global Quote']['05. price']);
+        }
+        
+        throw new Error('No price data from Alpha Vantage');
+      },
+
+      async fetchAlphaVantageSMA(symbol: string, maPeriod: string) {
+        const url = `https://www.alphavantage.co/query?function=SMA&symbol=${symbol}&interval=daily&time_period=${maPeriod}&series_type=close&apikey=${ALPHA_VANTAGE_API_KEY}`;
+        
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`Alpha Vantage SMA HTTP error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data['Technical Analysis: SMA'] && data['Technical Analysis: SMA']) {
+          const smaValues = Object.values(data['Technical Analysis: SMA']);
+          if (smaValues.length > 0) {
+            const latestSMA = smaValues[0] as any;
+            return parseFloat(latestSMA.SMA);
+          }
+        }
+        
+        throw new Error('No SMA data from Alpha Vantage');
+      },
+
+      calculateMovingAverage(prices: number[], period: number) {
+        if (prices.length < period) {
+          return prices[prices.length - 1] || 0;
+        }
+        
+        const recentPrices = prices.slice(-period);
+        const sum = recentPrices.reduce((acc, price) => acc + price, 0);
+        return sum / period;
+      },
+
+      async sendDiscordAlert(trade: any, marketData: any) {
+        try {
+          const isLong = trade.side === 'BUY';
+          const signalType = isLong ? 'SELL SIGNAL' : 'BUY SIGNAL';
+          const action = isLong ? 'unter' : 'über';
+          
+          const message = `📊 **SMA Alert** 📊
+
+**${trade.symbol}** ist ${action} **${trade.trailingMA}-MA** gefallen!
+
+📈 Aktueller Preis: **$${marketData.currentPrice.toFixed(2)}**
+📊 ${trade.trailingMA}-MA: **$${marketData.maValue.toFixed(2)}**
+⏰ Zeit: ${new Date().toLocaleString('de-DE')}
+
+🚨 **${signalType}**: Kurs ${action} Moving Average!
+
+✅ Lokale Überwachung`;
+
+          await fetch(DISCORD_WEBHOOK, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              content: message,
+              username: 'Local SMA Monitor'
+            })
+          });
+          
+          console.log(`✅ Discord alert sent for ${trade.symbol}`);
+        } catch (error) {
+          console.error(`❌ Failed to send Discord alert for ${trade.symbol}:`, error);
+        }
       }
+    };
+
+    setLocalMonitor(monitor);
+  }, []);
+
+  // Upload trade to local monitoring
+  const uploadTradeToLocal = async (trade: Trade) => {
+    try {
+      if (!localMonitor) {
+        throw new Error('Local monitor not initialized');
+      }
+      
+      const result = localMonitor.addTrade(trade);
+      
+      alert(`✅ Trade ${trade.symbol} zur lokalen Überwachung hinzugefügt!\n\nDie Überwachung läuft jetzt im Hintergrund alle 5 Minuten!\n\nDu kannst die App im Hintergrund lassen - Discord-Alerts kommen automatisch!`);
+      console.log('✅ Trade added to local monitoring:', result);
     } catch (error) {
-      alert('❌ Fehler beim Upload zur Cloud: ' + error.message);
-      console.error('❌ Cloud upload error:', error);
+      alert('❌ Fehler beim Hinzufügen zur lokalen Überwachung: ' + error.message);
+      console.error('❌ Local monitoring error:', error);
     }
   };
 
@@ -336,6 +671,21 @@ const ProfitTakingView: React.FC<ProfitTakingViewProps> = ({ trades, onTradeUpda
               className="flex items-center gap-2 px-4 py-2 bg-transparent border border-gray-600 hover:bg-gray-800 text-gray-300 hover:text-white rounded-lg text-sm font-medium transition-colors"
             >
               🧪 Test Discord Alert
+            </button>
+            <button
+              onClick={() => localMonitor?.checkAllTrades()}
+              className="flex items-center gap-2 px-4 py-2 bg-transparent border border-gray-600 hover:bg-gray-800 text-gray-300 hover:text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              🔍 Check Now
+            </button>
+            <button
+              onClick={() => {
+                const status = localMonitor?.getStatus();
+                alert(`📊 Monitoring Status:\n\nRunning: ${status?.isRunning ? '✅ Yes' : '❌ No'}\nTrades: ${status?.tradesCount || 0}\n\nAPI Status:\n- Yahoo Finance: Primary\n- Alpha Vantage: Backup (${ALPHA_VANTAGE_API_KEY.substring(0, 8)}...)`);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-transparent border border-gray-600 hover:bg-gray-800 text-gray-300 hover:text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              📊 Status
             </button>
             <button
               onClick={fetchMarketData}
@@ -467,11 +817,11 @@ const ProfitTakingView: React.FC<ProfitTakingViewProps> = ({ trades, onTradeUpda
                           </button>
                         )}
                         <button
-                          onClick={() => uploadTradeToCloud(trade)}
+                          onClick={() => uploadTradeToLocal(trade)}
                           className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs"
-                          title="Upload zur Cloud-Überwachung (24/7)"
+                          title="Lokale Überwachung (läuft im Hintergrund)"
                         >
-                          ☁️ Cloud
+                          🔄 Monitor
                         </button>
                       </div>
                     </td>
